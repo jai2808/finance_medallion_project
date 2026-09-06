@@ -1,0 +1,44 @@
+[
+  {
+    "gold_id": 1,
+    "gold_table": "${catalog}.gold.dim_customer",
+    "table_type": "dimension",
+    "is_active": true,
+    "sql_text": "CREATE OR REPLACE TABLE ${catalog}.gold.dim_customer AS SELECT customer_id, customer_name, date_of_birth, customer_segment, email FROM ${catalog}.silver.customers"
+  },
+  {
+    "gold_id": 2,
+    "gold_table": "${catalog}.gold.dim_branch",
+    "table_type": "dimension",
+    "is_active": true,
+    "sql_text": "CREATE OR REPLACE TABLE ${catalog}.gold.dim_branch AS SELECT branch_id, branch_name, branch_city FROM ${catalog}.silver.branches"
+  },
+  {
+    "gold_id": 3,
+    "gold_table": "${catalog}.gold.dim_account",
+    "table_type": "dimension",
+    "is_active": true,
+    "sql_text": "CREATE OR REPLACE TABLE ${catalog}.gold.dim_account AS SELECT account_id, customer_id, branch_id, account_type, open_date FROM ${catalog}.silver.accounts"
+  },
+  {
+    "gold_id": 4,
+    "gold_table": "${catalog}.gold.fact_transactions",
+    "table_type": "fact",
+    "is_active": true,
+    "sql_text": "CREATE OR REPLACE TABLE ${catalog}.gold.fact_transactions AS SELECT t.transaction_id, t.account_id, a.customer_id, a.branch_id, t.transaction_type, t.transaction_amount, t.transaction_date FROM ${catalog}.silver.transactions t JOIN ${catalog}.silver.accounts a ON t.account_id = a.account_id"
+  },
+  {
+    "gold_id": 5,
+    "gold_table": "${catalog}.gold.kpi_monthly_segment_flow",
+    "table_type": "kpi",
+    "is_active": true,
+    "sql_text": "CREATE OR REPLACE TABLE ${catalog}.gold.kpi_monthly_segment_flow AS SELECT c.customer_segment, date_trunc('month', f.transaction_date) AS txn_month, SUM(CASE WHEN f.transaction_type='CREDIT' THEN f.transaction_amount ELSE 0 END) AS total_credit, SUM(CASE WHEN f.transaction_type='DEBIT' THEN f.transaction_amount ELSE 0 END) AS total_debit, SUM(CASE WHEN f.transaction_type='CREDIT' THEN f.transaction_amount ELSE -f.transaction_amount END) AS net_flow FROM ${catalog}.gold.fact_transactions f JOIN ${catalog}.gold.dim_customer c ON f.customer_id = c.customer_id GROUP BY c.customer_segment, date_trunc('month', f.transaction_date)"
+  },
+  {
+    "gold_id": 6,
+    "gold_table": "${catalog}.gold.kpi_branch_performance",
+    "table_type": "kpi",
+    "is_active": true,
+    "sql_text": "CREATE OR REPLACE TABLE ${catalog}.gold.kpi_branch_performance AS SELECT b.branch_name, b.branch_city, COUNT(DISTINCT f.account_id) AS active_accounts, COUNT(f.transaction_id) AS total_transactions, ROUND(SUM(f.transaction_amount),2) AS total_transaction_value FROM ${catalog}.gold.fact_transactions f JOIN ${catalog}.gold.dim_branch b ON f.branch_id = b.branch_id GROUP BY b.branch_name, b.branch_city"
+  }
+]

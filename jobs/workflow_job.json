@@ -1,0 +1,92 @@
+{
+  "name": "finance_medallion_pipeline",
+  "email_notifications": {
+    "on_failure": ["data-eng-team@example.com"]
+  },
+  "schedule": {
+    "quartz_cron_expression": "0 0 3 * * ?",
+    "timezone_id": "Asia/Kolkata",
+    "pause_status": "UNPAUSED"
+  },
+  "job_clusters": [
+    {
+      "job_cluster_key": "medallion_cluster",
+      "new_cluster": {
+        "spark_version": "15.4.x-scala2.12",
+        "node_type_id": "Standard_DS3_v2",
+        "num_workers": 2,
+        "data_security_mode": "SINGLE_USER"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "task_key": "setup_catalog",
+      "job_cluster_key": "medallion_cluster",
+      "notebook_task": {
+        "notebook_path": "/Repos/finance_medallion_project/notebooks/00_setup_catalog_schemas",
+        "base_parameters": { "catalog": "finance_project" }
+      },
+      "timeout_seconds": 1800,
+      "max_retries": 0
+    },
+    {
+      "task_key": "setup_metadata",
+      "depends_on": [{ "task_key": "setup_catalog" }],
+      "job_cluster_key": "medallion_cluster",
+      "notebook_task": {
+        "notebook_path": "/Repos/finance_medallion_project/notebooks/01_setup_metadata_tables",
+        "base_parameters": {
+          "catalog": "finance_project",
+          "config_repo_path": "/Workspace/Repos/finance_medallion_project/config"
+        }
+      },
+      "timeout_seconds": 1800,
+      "max_retries": 0
+    },
+    {
+      "task_key": "bronze_ingestion",
+      "depends_on": [{ "task_key": "setup_metadata" }],
+      "job_cluster_key": "medallion_cluster",
+      "notebook_task": {
+        "notebook_path": "/Repos/finance_medallion_project/notebooks/03_bronze_generic_loader",
+        "base_parameters": { "catalog": "finance_project" }
+      },
+      "timeout_seconds": 3600,
+      "max_retries": 1
+    },
+    {
+      "task_key": "silver_transform",
+      "depends_on": [{ "task_key": "bronze_ingestion" }],
+      "job_cluster_key": "medallion_cluster",
+      "notebook_task": {
+        "notebook_path": "/Repos/finance_medallion_project/notebooks/04_silver_generic_transform",
+        "base_parameters": { "catalog": "finance_project" }
+      },
+      "timeout_seconds": 3600,
+      "max_retries": 1
+    },
+    {
+      "task_key": "gold_aggregation",
+      "depends_on": [{ "task_key": "silver_transform" }],
+      "job_cluster_key": "medallion_cluster",
+      "notebook_task": {
+        "notebook_path": "/Repos/finance_medallion_project/notebooks/05_gold_generic_aggregator",
+        "base_parameters": { "catalog": "finance_project" }
+      },
+      "timeout_seconds": 3600,
+      "max_retries": 1
+    },
+    {
+      "task_key": "dq_dashboard_refresh",
+      "depends_on": [{ "task_key": "gold_aggregation" }],
+      "job_cluster_key": "medallion_cluster",
+      "notebook_task": {
+        "notebook_path": "/Repos/finance_medallion_project/notebooks/07_data_quality_dashboard",
+        "base_parameters": { "catalog": "finance_project" }
+      },
+      "timeout_seconds": 1800,
+      "max_retries": 0
+    }
+  ]
+}

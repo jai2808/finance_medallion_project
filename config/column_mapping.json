@@ -1,0 +1,23 @@
+[
+  { "source_name": "customers", "src_col": "cust_id",   "tgt_col": "customer_id",       "data_type": "string" },
+  { "source_name": "customers", "src_col": "cust_name", "tgt_col": "customer_name",     "data_type": "string" },
+  { "source_name": "customers", "src_col": "dob",        "tgt_col": "date_of_birth",     "data_type": "date"   },
+  { "source_name": "customers", "src_col": "segment",    "tgt_col": "customer_segment",  "data_type": "string" },
+  { "source_name": "customers", "src_col": "email",      "tgt_col": "email",             "data_type": "string" },
+
+  { "source_name": "branches", "src_col": "branch_id",   "tgt_col": "branch_id",   "data_type": "string" },
+  { "source_name": "branches", "src_col": "branch_city", "tgt_col": "branch_city","data_type": "string" },
+  { "source_name": "branches", "src_col": "branch_name", "tgt_col": "branch_name","data_type": "string" },
+
+  { "source_name": "accounts", "src_col": "acc_id",       "tgt_col": "account_id",   "data_type": "string" },
+  { "source_name": "accounts", "src_col": "customer_id",  "tgt_col": "customer_id",  "data_type": "string" },
+  { "source_name": "accounts", "src_col": "branch_id",    "tgt_col": "branch_id",    "data_type": "string" },
+  { "source_name": "accounts", "src_col": "account_type", "tgt_col": "account_type", "data_type": "string" },
+  { "source_name": "accounts", "src_col": "open_date",    "tgt_col": "open_date",    "data_type": "date"   },
+
+  { "source_name": "transactions", "src_col": "txn_id",   "tgt_col": "transaction_id",     "data_type": "string" },
+  { "source_name": "transactions", "src_col": "acc_id",   "tgt_col": "account_id",         "data_type": "string" },
+  { "source_name": "transactions", "src_col": "txn_amt",  "tgt_col": "transaction_amount", "data_type": "double" },
+  { "source_name": "transactions", "src_col": "txn_type", "tgt_col": "transaction_type",   "data_type": "string" },
+  { "source_name": "transactions", "src_col": "txn_date", "tgt_col": "transaction_date",   "data_type": "date"   }
+]

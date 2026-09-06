@@ -1,0 +1,56 @@
+[
+  {
+    "rule_id": 1,
+    "source_name": "transactions",
+    "column_name": "transaction_amount",
+    "rule_type": "not_null",
+    "rule_expr": null,
+    "action": "quarantine",
+    "description": "Transaction amount must always be present"
+  },
+  {
+    "rule_id": 2,
+    "source_name": "transactions",
+    "column_name": "transaction_amount",
+    "rule_type": "range",
+    "rule_expr": "transaction_amount > 0",
+    "action": "quarantine",
+    "description": "Transaction amount must be positive (sign is carried by transaction_type)"
+  },
+  {
+    "rule_id": 3,
+    "source_name": "transactions",
+    "column_name": "transaction_id",
+    "rule_type": "not_null",
+    "rule_expr": null,
+    "action": "reject",
+    "description": "Transaction ID is the primary key and cannot be null"
+  },
+  {
+    "rule_id": 4,
+    "source_name": "customers",
+    "column_name": "customer_id",
+    "rule_type": "not_null",
+    "rule_expr": null,
+    "action": "reject",
+    "description": "Customer ID is the primary key and cannot be null"
+  },
+  {
+    "rule_id": 5,
+    "source_name": "accounts",
+    "column_name": "account_id",
+    "rule_type": "not_null",
+    "rule_expr": null,
+    "action": "reject",
+    "description": "Account ID is the primary key and cannot be null"
+  },
+  {
+    "rule_id": 6,
+    "source_name": "accounts",
+    "column_name": "account_type",
+    "rule_type": "allowed_values",
+    "rule_expr": "account_type IN ('Savings','Current','FD','Loan')",
+    "action": "quarantine",
+    "description": "Account type must be one of the defined banking product types"
+  }
+]

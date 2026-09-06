@@ -1,0 +1,50 @@
+[
+  {
+    "source_id": 1,
+    "source_name": "customers",
+    "source_format": "csv",
+    "source_path": "/Volumes/${catalog}/control/landing/customers/",
+    "bronze_table": "${catalog}.bronze.customers",
+    "silver_table": "${catalog}.silver.customers",
+    "load_type": "full",
+    "primary_key": "customer_id",
+    "partition_col": null,
+    "is_active": true
+  },
+  {
+    "source_id": 2,
+    "source_name": "branches",
+    "source_format": "csv",
+    "source_path": "/Volumes/${catalog}/control/landing/branches/",
+    "bronze_table": "${catalog}.bronze.branches",
+    "silver_table": "${catalog}.silver.branches",
+    "load_type": "full",
+    "primary_key": "branch_id",
+    "partition_col": null,
+    "is_active": true
+  },
+  {
+    "source_id": 3,
+    "source_name": "accounts",
+    "source_format": "csv",
+    "source_path": "/Volumes/${catalog}/control/landing/accounts/",
+    "bronze_table": "${catalog}.bronze.accounts",
+    "silver_table": "${catalog}.silver.accounts",
+    "load_type": "incremental",
+    "primary_key": "account_id",
+    "partition_col": null,
+    "is_active": true
+  },
+  {
+    "source_id": 4,
+    "source_name": "transactions",
+    "source_format": "json",
+    "source_path": "/Volumes/${catalog}/control/landing/transactions/",
+    "bronze_table": "${catalog}.bronze.transactions",
+    "silver_table": "${catalog}.silver.transactions",
+    "load_type": "incremental",
+    "primary_key": "transaction_id",
+    "partition_col": "transaction_date",
+    "is_active": true
+  }
+]

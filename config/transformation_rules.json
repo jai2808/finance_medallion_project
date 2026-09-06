@@ -1,0 +1,46 @@
+[
+  {
+    "rule_id": 1,
+    "source_name": "transactions",
+    "config_version": 1,
+    "sequence": 10,
+    "operation": "derive",
+    "target_column": "transaction_month",
+    "expression": "date_trunc('month', transaction_date)",
+    "is_active": true,
+    "description": "Month grain used by downstream finance reporting"
+  },
+  {
+    "rule_id": 2,
+    "source_name": "transactions",
+    "config_version": 1,
+    "sequence": 20,
+    "operation": "derive",
+    "target_column": "signed_amount",
+    "expression": "CASE WHEN transaction_type = 'DEBIT' THEN -transaction_amount ELSE transaction_amount END",
+    "is_active": true,
+    "description": "Standardized signed transaction value"
+  },
+  {
+    "rule_id": 3,
+    "source_name": "transactions",
+    "config_version": 1,
+    "sequence": 30,
+    "operation": "filter",
+    "expression": "transaction_type IN ('DEBIT', 'CREDIT', 'TRANSFER')",
+    "is_active": true,
+    "description": "Keep only supported transaction types"
+  },
+  {
+    "rule_id": 4,
+    "source_name": "transactions",
+    "config_version": 1,
+    "sequence": 40,
+    "operation": "handler",
+    "target_column": "risk_band",
+    "handler_name": "add_transaction_risk_band",
+    "expression": null,
+    "is_active": true,
+    "description": "Reviewed risk classification for transaction monitoring"
+  }
+]

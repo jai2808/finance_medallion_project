@@ -1,31 +1,37 @@
 # Databricks notebook source
 # MAGIC %md
 # MAGIC # 06 - Orchestrator Driver
-# MAGIC Runs Bronze -> Silver -> Gold in sequence for the given catalog.
-# MAGIC This is the single notebook a Databricks Job/Workflow schedules
-# MAGIC (see `jobs/workflow_job.json` for the equivalent 3-task job definition,
-# MAGIC which is the preferred production approach since it gives per-layer
-# MAGIC retries and observability in the Jobs UI).
+# MAGIC Runs Bronze -> Silver -> Gold in sequence for Community Edition.
 
 # COMMAND ----------
-dbutils.widgets.text("catalog", "finance_project")
-catalog = dbutils.widgets.get("catalog")
+import uuid
+
+dbutils.widgets.text("database", "finance_project")
+database = dbutils.widgets.get("database")
+dbutils.widgets.text("run_id", "")
+run_id = dbutils.widgets.get("run_id") or str(uuid.uuid4())
 
 # COMMAND ----------
-from pyspark.sql import functions as F
+# MAGIC %run ../utils/audit_logger
 
 # COMMAND ----------
-print("=== STEP 1/3: BRONZE ===")
-dbutils.notebook.run("03_bronze_generic_loader", timeout_seconds=3600, arguments={"catalog": catalog})
+from datetime import datetime
+started_ts = datetime.now()
+log_pipeline_run(database, run_id, "finance_medallion_pipeline", "STARTED", started_ts)
+
+# COMMAND ----------
+# MAGIC %run ./03_bronze_generic_loader
 
 # COMMAND ----------
 print("=== STEP 2/3: SILVER ===")
-dbutils.notebook.run("04_silver_generic_transform", timeout_seconds=3600, arguments={"catalog": catalog})
+# MAGIC %run ./04_silver_generic_transform
 
 # COMMAND ----------
 print("=== STEP 3/3: GOLD ===")
-dbutils.notebook.run("05_gold_generic_aggregator", timeout_seconds=3600, arguments={"catalog": catalog})
+# MAGIC %run ./05_gold_generic_aggregator
 
 # COMMAND ----------
-print("✅ Full medallion pipeline run complete for catalog:", catalog)
-display(spark.table(f"{catalog}.control.audit_log").orderBy(F.col("run_ts").desc()))
+from pyspark.sql import functions as F
+print("Full medallion pipeline run complete for database:", database)
+log_pipeline_run(database, run_id, "finance_medallion_pipeline", "SUCCESS", started_ts, datetime.now())
+display(spark.table(f"{database}_control_audit_log").orderBy(F.col("run_ts").desc()))

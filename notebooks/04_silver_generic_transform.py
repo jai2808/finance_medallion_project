@@ -7,8 +7,11 @@
 # MAGIC primary key, and MERGEs the clean result into the Silver Delta table.
 
 # COMMAND ----------
-dbutils.widgets.text("catalog", "finance_project")
-catalog = dbutils.widgets.get("catalog")
+dbutils.widgets.text("database", "finance_project")
+database = dbutils.widgets.get("database")
+
+# COMMAND ----------
+# MAGIC %run ../utils/transformation_registry
 
 # COMMAND ----------
 # MAGIC %run ../utils/common_functions
@@ -22,7 +25,7 @@ import uuid
 
 run_id = str(uuid.uuid4())
 
-active_sources = spark.table(f"{catalog}.control.pipeline_config") \
+active_sources = spark.table(f"{database}_control_pipeline_config") \
     .filter("is_active = true").collect()
 
 for row in active_sources:
@@ -35,12 +38,15 @@ for row in active_sources:
         bronze_df = spark.table(bronze_table)
 
         # 1) Apply column mapping (rename + cast); pass-through if no mapping defined
-        mapped_df = apply_column_mapping(spark, catalog, bronze_df, source_name)
+        mapped_df = apply_column_mapping(spark, database, bronze_df, source_name)
 
-        # 2) Apply data quality rules -> split into clean / quarantine
-        clean_df, bad_df = apply_dq_rules(spark, catalog, mapped_df, source_name)
+        # 2) Apply ordered business transformations from metadata
+        transformed_df = apply_transformations(spark, database, mapped_df, source_name)
 
-        # 3) Deduplicate on primary key (keep latest by ingest timestamp)
+        # 3) Apply data quality rules -> split into clean / quarantine
+        clean_df, bad_df = apply_dq_rules(spark, database, transformed_df, source_name)
+
+        # 4) Deduplicate on primary key (keep latest by ingest timestamp)
         if "_ingest_timestamp" in clean_df.columns:
             from pyspark.sql import Window
             w = Window.partitionBy(primary_key).orderBy(F.col("_ingest_timestamp").desc())
@@ -51,22 +57,22 @@ for row in active_sources:
 
         clean_df = clean_df.withColumn("_silver_load_ts", F.current_timestamp())
 
-        # 4) MERGE into Silver (upsert)
+        # 5) MERGE into Silver (upsert)
         merge_to_silver(spark, clean_df, silver_table, primary_key)
 
-        # 5) Write rejected/quarantined rows for investigation
+        # 6) Write rejected/quarantined rows for investigation
         if bad_df is not None and bad_df.count() > 0:
-            quarantine_table = f"{catalog}.silver.{source_name}_quarantine"
+            quarantine_table = f"{database}_silver_{source_name}_quarantine"
             bad_df.withColumn("_quarantined_ts", F.current_timestamp()) \
                   .write.format("delta").mode("append").saveAsTable(quarantine_table)
             print(f"⚠️  {bad_df.count()} rows quarantined -> {quarantine_table}")
 
         clean_count = clean_df.count()
-        log_audit(catalog, "silver", source_name, "SUCCESS", clean_count, None, run_id)
+        log_audit(database, "silver", source_name, "SUCCESS", clean_count, None, run_id)
         print(f"✅ Silver loaded: {silver_table} ({clean_count} clean rows merged)")
 
     except Exception as e:
-        log_audit(catalog, "silver", source_name, "FAILED", 0, str(e), run_id)
+        log_audit(database, "silver", source_name, "FAILED", 0, str(e), run_id)
         print(f"❌ Silver FAILED for {source_name}: {e}")
         raise
 

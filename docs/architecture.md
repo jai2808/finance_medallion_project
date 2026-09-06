@@ -35,6 +35,17 @@ Adding source #5 (e.g., `loan_repayments`) requires:
 3. Optional rows in `dq_rules.json` if the column needs validation
 4. Re-run `01_setup_metadata_tables.py`, then the orchestrator — **zero new PySpark code**
 
+Transformation behavior is also metadata-driven. `transformation_rules.json`
+contains versioned, ordered Spark SQL expressions for common operations. Complex
+multi-step logic is selected by a metadata `handler_name` and implemented in the
+reviewed `transformation_registry.py`; configuration never evaluates arbitrary
+Python code.
+
+For enterprise deployments, promote configuration versions through dev, test,
+and production, retain the immutable control-table history, and require code
+review for new handlers. The pipeline run and audit tables provide the operational
+record needed to replay an individual layer after a failure.
+
 ## 4. Data Quality Pattern
 
 Every Silver run splits incoming rows into:

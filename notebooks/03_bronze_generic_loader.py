@@ -3,12 +3,11 @@
 # MAGIC # 03 - Bronze Generic Loader
 # MAGIC ONE notebook loads EVERY source. Behavior for each source (path, format,
 # MAGIC target table) comes entirely from the `pipeline_config` control table —
-# MAGIC no source-specific code here. Uses Autoloader (`cloudFiles`) for
-# MAGIC schema inference/evolution and exactly-once, checkpointed ingestion.
+# MAGIC no source-specific code here. Uses batch reads so it runs in Community Edition.
 
 # COMMAND ----------
-dbutils.widgets.text("catalog", "finance_project")
-catalog = dbutils.widgets.get("catalog")
+dbutils.widgets.text("database", "finance_project")
+database = dbutils.widgets.get("database")
 
 # COMMAND ----------
 # MAGIC %run ../utils/common_functions
@@ -22,20 +21,15 @@ import uuid
 
 run_id = str(uuid.uuid4())
 
-def load_bronze(source_row, catalog):
+def load_bronze(source_row, database):
     source_name = source_row["source_name"]
     fmt = source_row["source_format"]
     path = source_row["source_path"]
     bronze_table = source_row["bronze_table"]
-    checkpoint = f"/Volumes/{catalog}/control/checkpoints/{source_name}_bronze/"
-
     try:
-        reader = (spark.readStream.format("cloudFiles")
-                  .option("cloudFiles.format", fmt)
-                  .option("cloudFiles.schemaLocation", checkpoint + "schema/")
-                  .option("cloudFiles.inferColumnTypes", "true")
-                  .option("cloudFiles.schemaEvolutionMode", "addNewColumns"))
-
+        reader = spark.read.format(fmt)
+        if fmt == "csv":
+            reader = reader.option("header", "true").option("inferSchema", "true")
         df = reader.load(path)
 
         df_audit = (df
@@ -44,22 +38,15 @@ def load_bronze(source_row, catalog):
             .withColumn("_source_name", F.lit(source_name))
             .withColumn("_batch_id", F.lit(run_id)))
 
-        query = (df_audit.writeStream
-            .format("delta")
-            .option("checkpointLocation", checkpoint)
-            .option("mergeSchema", "true")
-            .outputMode("append")
-            .trigger(availableNow=True)
-            .toTable(bronze_table))
-
-        query.awaitTermination()
+        (df_audit.write.format("delta").mode("overwrite")
+            .option("overwriteSchema", "true").saveAsTable(bronze_table))
 
         row_count = spark.table(bronze_table).count()
-        log_audit(catalog, "bronze", source_name, "SUCCESS", row_count, None, run_id)
+        log_audit(database, "bronze", source_name, "SUCCESS", row_count, None, run_id)
         print(f"✅ Bronze loaded: {bronze_table} (total rows now: {row_count})")
 
     except Exception as e:
-        log_audit(catalog, "bronze", source_name, "FAILED", 0, str(e), run_id)
+        log_audit(database, "bronze", source_name, "FAILED", 0, str(e), run_id)
         print(f"❌ Bronze FAILED for {source_name}: {e}")
         raise
 
@@ -67,12 +54,12 @@ def load_bronze(source_row, catalog):
 # MAGIC %md ### Driver loop — reads active sources from metadata and loads each one
 
 # COMMAND ----------
-active_sources = spark.table(f"{catalog}.control.pipeline_config") \
+active_sources = spark.table(f"{database}_control_pipeline_config") \
     .filter("is_active = true").collect()
 
 print(f"Found {len(active_sources)} active source(s) to load into Bronze.")
 
 for row in active_sources:
-    load_bronze(row, catalog)
+    load_bronze(row, database)
 
 print("✅ Bronze layer run complete.")

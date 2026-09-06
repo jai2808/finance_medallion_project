@@ -12,16 +12,29 @@ from delta.tables import DeltaTable
 
 def get_column_map(spark, catalog, source_name):
     """Returns the list of column-mapping rows for one source, or [] if none defined."""
-    return (spark.table(f"{catalog}.control.column_mapping")
+    return (spark.table(f"{catalog}_control_column_mapping")
             .filter(f"source_name = '{source_name}'")
             .collect())
 
 
 def get_dq_rules(spark, catalog, source_name):
     """Returns the list of data-quality rule rows for one source, or [] if none defined."""
-    return (spark.table(f"{catalog}.control.data_quality_rules")
+    return (spark.table(f"{catalog}_control_data_quality_rules")
             .filter(f"source_name = '{source_name}'")
             .collect())
+
+
+def get_transformation_rules(spark, catalog, source_name):
+    """Returns active, ordered transformation rules for one source."""
+    rules = (spark.table(f"{catalog}_control_transformation_rules")
+             .filter(f"source_name = '{source_name}' AND is_active = true")
+             .collect())
+    if not rules:
+        return []
+    current_version = max(int(rule["config_version"] or 1) for rule in rules)
+    return sorted(
+        [rule for rule in rules if int(rule["config_version"] or 1) == current_version],
+        key=lambda rule: rule["sequence"])
 
 
 def apply_column_mapping(spark, catalog, df, source_name):
@@ -41,6 +54,39 @@ def apply_column_mapping(spark, catalog, df, source_name):
     ]
     audit_cols = [F.col(c) for c in df.columns if c.startswith("_")]
     return df.select(*select_exprs, *audit_cols)
+
+
+def apply_transformations(spark, catalog, df, source_name):
+    """Executes approved, ordered SQL expressions declared in metadata."""
+    rules = get_transformation_rules(spark, catalog, source_name)
+    transformed_df = df
+    supported_operations = {"derive", "filter", "drop_duplicates", "handler"}
+
+    for rule in rules:
+        operation = rule["operation"]
+        if operation not in supported_operations:
+            raise ValueError(f"Unsupported transformation operation: {operation}")
+
+        if operation == "derive":
+            if not rule["target_column"] or not rule["expression"]:
+                raise ValueError(f"Derive rule {rule['rule_id']} requires target_column and expression")
+            transformed_df = transformed_df.withColumn(
+                rule["target_column"], F.expr(rule["expression"]))
+        elif operation == "filter":
+            if not rule["expression"]:
+                raise ValueError(f"Filter rule {rule['rule_id']} requires expression")
+            transformed_df = transformed_df.filter(F.expr(rule["expression"]))
+        elif operation == "drop_duplicates":
+            columns = rule["expression"].split(",")
+            transformed_df = transformed_df.dropDuplicates([column.strip() for column in columns])
+        elif operation == "handler":
+            handlers = globals().get("TRANSFORMATION_HANDLERS", {})
+            handler = handlers.get(rule["handler_name"])
+            if handler is None:
+                raise ValueError(f"Unregistered transformation handler: {rule['handler_name']}")
+            transformed_df = handler(transformed_df, rule)
+
+    return transformed_df
 
 
 def apply_dq_rules(spark, catalog, df, source_name):

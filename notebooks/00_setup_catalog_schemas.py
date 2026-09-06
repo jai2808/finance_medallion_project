@@ -1,29 +1,18 @@
 # Databricks notebook source
 # MAGIC %md
-# MAGIC # 00 - Setup Catalog, Schemas, Volumes
-# MAGIC Creates the Unity Catalog objects used by every other notebook in this project.
-# MAGIC Run this ONCE per environment (dev/test/prod) with a different `catalog` widget value.
+# MAGIC # 00 - Setup Community Edition Database
+# MAGIC Creates the default-metastore database and FileStore folders used by the other notebooks.
 
 # COMMAND ----------
-dbutils.widgets.text("catalog", "finance_project")
-catalog = dbutils.widgets.get("catalog")
+dbutils.widgets.text("database", "finance_project")
+database = dbutils.widgets.get("database")
 
 # COMMAND ----------
-spark.sql(f"CREATE CATALOG IF NOT EXISTS {catalog}")
-spark.sql(f"USE CATALOG {catalog}")
-
-for schema in ["control", "bronze", "silver", "gold"]:
-    spark.sql(f"CREATE SCHEMA IF NOT EXISTS {catalog}.{schema}")
-
-# Volumes used for landing (raw file drops), checkpoints, and quarantine
-spark.sql(f"CREATE VOLUME IF NOT EXISTS {catalog}.control.landing")
-spark.sql(f"CREATE VOLUME IF NOT EXISTS {catalog}.control.checkpoints")
-spark.sql(f"CREATE VOLUME IF NOT EXISTS {catalog}.control.quarantine")
+spark.sql(f"CREATE DATABASE IF NOT EXISTS {database}")
+spark.sql(f"USE {database}")
 
 # COMMAND ----------
-# Landing sub-folders per source (mirrors pipeline_config.json source_path values)
-for src in ["customers", "branches", "accounts", "transactions"]:
-    dbutils.fs.mkdirs(f"/Volumes/{catalog}/control/landing/{src}/")
+# Source-specific landing folders are created by the inbound file drop or demo notebook.
+dbutils.fs.mkdirs(f"/FileStore/{database}/landing/")
 
-print("✅ Catalog, schemas, and volumes created:")
-display(spark.sql(f"SHOW SCHEMAS IN {catalog}"))
+print("Community Edition database and landing folders created:", database)

@@ -10,8 +10,8 @@
 # MAGIC banking DB, card processor feed, branch CRM) land files here instead.
 
 # COMMAND ----------
-dbutils.widgets.text("catalog", "finance_project")
-catalog = dbutils.widgets.get("catalog")
+dbutils.widgets.text("database", "finance_project")
+database = dbutils.widgets.get("database")
 
 # COMMAND ----------
 import random
@@ -88,7 +88,7 @@ transactions = pd.DataFrame(rows)
 # MAGIC %md ### Write to landing volume (simulating source system drops)
 
 # COMMAND ----------
-landing = f"/Volumes/{catalog}/control/landing"
+landing = f"/FileStore/{database}/landing"
 
 spark.createDataFrame(customers).write.mode("overwrite").option("header", True) \
     .csv(f"{landing}/customers/")
